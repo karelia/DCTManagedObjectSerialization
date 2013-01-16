@@ -46,21 +46,23 @@
 	return YES;
 }
 
-- (void)dct_awakeFromSerializedRepresentation:(NSObject *)rep;
+- (BOOL)dct_awakeFromSerializedRepresentation:(NSObject *)rep error:(NSError **)error;
 {
     NSEntityDescription *entity = self.entity;
     
-	[entity.properties enumerateObjectsUsingBlock:^(NSPropertyDescription *property, NSUInteger i, BOOL *stop) {
+	for (NSPropertyDescription *property in entity.properties) {
         
 		// Skip transient properties
-		if ([property isTransient]) return;
+		if ([property isTransient]) continue;
 		
         NSString *serializationName = property.dct_serializationName;
 		id serializedValue = [rep valueForKeyPath:serializationName];
         
 		if (serializedValue || entity.dct_shouldDeserializeNilValues)
-			[self dct_setSerializedValue:serializedValue forKey:property.name error:NULL];
-	}];
+			if (![self dct_setSerializedValue:serializedValue forKey:property.name error:error]) return NO;
+	}
+    
+    return YES;
 }
 
 @end
