@@ -21,6 +21,7 @@
     {
 		if (value)
 		{
+            // Check we haven't been handed an object of the wrong type
 			Class class = NSClassFromString([(NSAttributeDescription *)property attributeValueClassName]);
 			if (![value isKindOfClass:class])
 			{
@@ -28,7 +29,11 @@
 				return NO;
 			}
 		}
+        
+        // Test Core Data's regular validation
+        if (![self validateValue:&transformedValue forKey:key error:error]) return NO;
 		
+        // Finally considered safe to store it
         [self willChangeValueForKey:key];
         [self setPrimitiveValue:transformedValue forKey:key];
         [self didChangeValueForKey:key];
