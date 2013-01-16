@@ -46,7 +46,7 @@
 	return YES;
 }
 
-- (BOOL)dct_awakeFromSerializedRepresentation:(NSObject *)rep error:(NSError **)error;
+- (BOOL)dct_awakeFromSerializedRepresentation:(NSObject /*<NSKeyValueCoding>*/ *)rep error:(NSError **)error;
 {
     NSEntityDescription *entity = self.entity;
     
