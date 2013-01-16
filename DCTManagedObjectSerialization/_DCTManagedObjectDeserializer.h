@@ -22,6 +22,6 @@
 				  entity:(NSEntityDescription *)entity
 	managedObjectContext:(NSManagedObjectContext *)managedObjectContext;
 
-- (id)deserializedObject;
+- (id)deserializedObject:(NSError **)error;
 
 @end

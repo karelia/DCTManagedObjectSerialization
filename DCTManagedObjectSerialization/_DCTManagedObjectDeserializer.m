@@ -44,20 +44,30 @@
 }
 #endif
 
-- (id)deserializedObject {
-
+- (id)deserializedObject:(NSError **)error;
+{
 	NSManagedObject *managedObject = [self _existingObject];
 
-	if (!managedObject) {
+	if (managedObject)
+    {
+        if (![managedObject dct_awakeFromSerializedRepresentation:_dictionary error:error]) managedObject = nil;
+    }
+    else
+    {
 		managedObject = [[NSManagedObject alloc] initWithEntity:_entity insertIntoManagedObjectContext:_managedObjectContext];
-		
+        
 #if !__has_feature(objc_arc)
 		[managedObject autorelease];
 #endif
+        
+        if (![managedObject dct_awakeFromSerializedRepresentation:_dictionary error:error])
+        {
+            // Scrap the object since deserialization failed
+            [_managedObjectContext deleteObject:managedObject];
+            managedObject = nil;
+        }
 	}
 	
-	[managedObject dct_awakeFromSerializedRepresentation:_dictionary];
-
 	return managedObject;
 }
 

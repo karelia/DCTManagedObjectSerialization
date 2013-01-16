@@ -29,17 +29,25 @@
 	}
 }
 
-- (void)dct_populateCollection:(id)collection fromSerializedObjects:(NSArray *)array managedObjectContext:(NSManagedObjectContext *)managedObjectContext {
+- (BOOL)dct_populateCollection:(id)collection fromSerializedObjects:(NSArray *)array managedObjectContext:(NSManagedObjectContext *)managedObjectContext error:(NSError **)error {
 
-	[array enumerateObjectsUsingBlock:^(NSDictionary *dictionary, NSUInteger i, BOOL *stop) {
-		id object = [self dct_valueForSerializedDictionary:dictionary managedObjectContext:managedObjectContext];
+	for (NSDictionary *dictionary in array) {
+		id object = [self dct_valueForSerializedDictionary:dictionary managedObjectContext:managedObjectContext error:error];
+        if (!object) return NO;
 		[collection addObject:object];
-	}];
+	}
 }
 
-- (id)dct_valueForSerializedDictionary:(NSDictionary *)dictionary managedObjectContext:(NSManagedObjectContext *)managedObjectContext {
-
-	if (![dictionary isKindOfClass:[NSDictionary class]]) return nil;    // likely corrupt serialization
+- (id)dct_valueForSerializedDictionary:(NSDictionary *)dictionary managedObjectContext:(NSManagedObjectContext *)managedObjectContext error:(NSError **)error;
+{
+    NSParameterAssert(dictionary);
+    
+    // Handle corrupt serializations
+	if (![dictionary isKindOfClass:[NSDictionary class]])
+    {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadCorruptFileError userInfo:nil];
+        return nil;
+    }
 
 	NSEntityDescription *entity = nil;
     if ([dictionary objectForKey:@"entity"])
@@ -59,7 +67,7 @@
 	_DCTManagedObjectDeserializer *deserializer = [[_DCTManagedObjectDeserializer alloc] initWithDictionary:dictionary
 																									 entity:entity
 																					   managedObjectContext:managedObjectContext];
-	NSManagedObject *result = [deserializer deserializedObject];
+	NSManagedObject *result = [deserializer deserializedObject:error];
 	
 #if !__has_feature(objc_arc)
 	[deserializer release];

@@ -25,7 +25,7 @@ NSString *const DCTManagedObjectSerializationISO8601ValueTransformerName = @"ISO
 																									 entity:entity
 																					   managedObjectContext:managedObjectContext];
 
-	NSManagedObject *result = [deserializer deserializedObject];
+	NSManagedObject *result = [deserializer deserializedObject:NULL];
 	
 #if !__has_feature(objc_arc)
 	[deserializer release];
