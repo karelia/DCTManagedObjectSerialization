@@ -23,7 +23,7 @@
 		{
             // Check we haven't been handed an object of the wrong type
 			Class class = NSClassFromString([(NSAttributeDescription *)property attributeValueClassName]);
-			if (![value isKindOfClass:class])
+			if (![transformedValue isKindOfClass:class])
 			{
 				if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadCorruptFileError userInfo:nil];
 				return NO;
