@@ -101,10 +101,10 @@
         NSDictionary *oldDictionary = _dictionary;
         _dictionary = dictionary;
         
-        NSManagedObject *managedObject = [self existingObjectWithDictionary:dictionary entity:entity managedObjectContext:_managedObjectContext];
+        NSManagedObject *managedObject = [self existingObjectWithDictionary:dictionary entity:entity managedObjectContext:self.managedObjectContext];
         
         if (!managedObject) {
-            managedObject = [[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:_managedObjectContext];
+            managedObject = [[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:self.managedObjectContext];
             
 #if !__has_feature(objc_arc)
             [managedObject autorelease];
@@ -130,42 +130,86 @@
 #endif
 		_errors = nil;
         
-        // For the outermost call, install a undo group to perform error recovery with
-        // TODO: On 10.7/iOS5+ could instead do the changes into a child MOC
-        NSUndoManager *undoManager = [[self managedObjectContext] undoManager];
-        if (!undoManager)
+        
+        // For the outermost call, recover from any errors during deserialization
+        // On 10.7/iOS5+ have the luxury of doing this using a child MOC; Older releases must make do with an undo group
+        NSManagedObjectContext *context = [self managedObjectContext];
+        if ([context respondsToSelector:@selector(parentContext)])
         {
-            // Install an undo manager temporarily
-            undoManager = [[NSUndoManager alloc] init];
-            [[self managedObjectContext] setUndoManager:undoManager];
-            
-            // Try again now we have an undo manager
-            id result = [self deserializeObjectUsingBlock:block];
-            
-            // Clear up
-            [[self managedObjectContext] setUndoManager:nil];
-
+            _managedObjectContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
+            @try
+            {
+                [_managedObjectContext setParentContext:context];
+                
+                id result = block();
+                
+                if ([self errors])
+                {
+                    result = nil;
+                }
+                else
+                {
+                    NSError *error;
+                    if ([_managedObjectContext save:&error])
+                    {
+                        // Locate the object in the target context
+                        NSManagedObjectID *objectID = [result objectID];
+                        result = [context objectWithID:objectID];
+                    }
+                    else
+                    {
+                        [self recordError:error];
+                        result = nil;
+                    }
+                }
+                
+                return result;
+            }
+            @finally
+            {
 #if !__has_feature(objc_arc)
-            [undoManager release];
+                [_managedObjectContext release];
 #endif
-			
-            return  result;
+                _managedObjectContext = context;
+            }
         }
-        
-        [undoManager beginUndoGrouping];
-        
-        id result = block();
-        
-        [undoManager endUndoGrouping];
-        
-        // If there were one or more errors, pretend those changes never happened
-        if ([self errors])
+        else
         {
-            [undoManager undoNestedGroup];
-            result = nil;
-        }
+            NSUndoManager *undoManager = [context undoManager];
+            if (!undoManager)
+            {
+                // Install an undo manager temporarily
+                undoManager = [[NSUndoManager alloc] init];
+                [[self managedObjectContext] setUndoManager:undoManager];
+                
+                // Try again now we have an undo manager
+                id result = [self deserializeObjectUsingBlock:block];
+                
+                // Clear up
+                [[self managedObjectContext] setUndoManager:nil];
+                
+#if !__has_feature(objc_arc)
+                [undoManager release];
+#endif
+                
+                return  result;
+            }
+            
+            [undoManager beginUndoGrouping];
+            
+            id result = block();
+            
+            [undoManager endUndoGrouping];
+            
+            // If there were one or more errors, pretend those changes never happened
+            if ([self errors])
+            {
+                [undoManager undoNestedGroup];
+                result = nil;
+            }
         
-        return result;
+            return result;
+        }
     }
     else
     {
